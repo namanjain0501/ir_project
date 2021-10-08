@@ -1,4 +1,4 @@
-# **  _IR TERM PROJECT_ ** 
+#  _IR TERM PROJECT_  
 
 # GROUP NO - 6
 
