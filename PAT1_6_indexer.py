@@ -54,6 +54,7 @@ if __name__ == "__main__":
     for key in inv_index.keys():
         inv_index[key] = set(inv_index[key])
         inv_index[key] = list(inv_index[key])
+        inv_index[key].sort()
     
     out_file = open("model_queries_6.pth","wb")
     pickle.dump(inv_index, out_file)
