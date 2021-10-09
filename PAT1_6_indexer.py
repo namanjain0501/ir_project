@@ -24,7 +24,7 @@ def lemmatize_words(text):
     return [lemmatizer.lemmatize(word) for word in text.split()]
 
 if __name__ == "__main__":
-    file_path = "/home/naman/ir_project/Data/en_BDNews24"
+    file_path = sys.argv[1]
     
     inv_index = {}
     
