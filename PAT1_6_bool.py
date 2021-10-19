@@ -37,6 +37,9 @@ if __name__ == "__main__":
     
     inv_index = pickle.load(open(model_path, "rb"))
 
+    for k, v in inv_index.items():
+        inv_index[k] = [i[0] for i in v]
+    
     with open(queries_path) as f:
         for line in f.readlines():
             queryId, query = line.split(',')
