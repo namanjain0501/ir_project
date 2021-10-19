@@ -45,10 +45,15 @@ if __name__ == "__main__":
     docs = [(tup[0],lemmatize_words(tup[1])) for tup in docs]
     
     for doc in docs:
+        doc_dict = {}
         for token in doc[1]:
-            if(token not in inv_index.keys()):
-                inv_index[token]=[]
-            inv_index[token].append(doc[0])
+            if(token not in doc_dict.keys()):
+                doc_dict[token]=0
+            doc_dict[token]+=1
+        for key,value in doc_dict.items():
+            if(key not in inv_index.keys()):
+                inv_index[key]=[]
+            inv_index[key].append((doc[0],value))
     
     
     for key in inv_index.keys():
