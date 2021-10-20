@@ -25,25 +25,28 @@ def lemmatize_words(text):
 
 if __name__ == "__main__":
     file_path = sys.argv[1]
-    
+
     inv_index = {}
-    
+
     docs = []
-    
+
     for subdir, dirs, files in os.walk(file_path):
         for file in files:
-            cur_file = open(os.path.join(subdir, file),"r")
-            index = cur_file.read()
-            S = BeautifulSoup(index, 'lxml')
-            doc_name = S.find("docno").text
-            doc_content = S.find("text").text
-            
-            docs.append((doc_name, doc_content))
-    
+            try:
+                cur_file = open(os.path.join(subdir, file),"r")
+                index = cur_file.read()
+                S = BeautifulSoup(index, 'lxml')
+                doc_name = S.find("docno").text
+                doc_content = S.find("text").text
+
+                docs.append((doc_name, doc_content))
+            except Exception as e:
+                print(e)
+
     docs = [(tup[0],remove_stopwords(tup[1])) for tup in docs]
     docs = [(tup[0],remove_punctuation(tup[1])) for tup in docs]
     docs = [(tup[0],lemmatize_words(tup[1])) for tup in docs]
-    
+
     for doc in docs:
         doc_dict = {}
         for token in doc[1]:
@@ -54,12 +57,11 @@ if __name__ == "__main__":
             if(key not in inv_index.keys()):
                 inv_index[key]=[]
             inv_index[key].append((doc[0],value))
-    
-    
+
     for key in inv_index.keys():
         inv_index[key] = set(inv_index[key])
         inv_index[key] = list(inv_index[key])
         inv_index[key].sort()
-    
-    out_file = open("model_queries_6.pth","wb")
+
+    out_file = open("model_queries_6.pth", "wb")
     pickle.dump(inv_index, out_file)
