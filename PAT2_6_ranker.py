@@ -28,15 +28,16 @@ def lemmatize_words(text):
 
 def get_doc_wt(doc, scheme):
     doc_wt = {}
+    #doc_set = set(docs[doc])
     if scheme[0] == 'l':
-        for token in set(docs[doc]):
+        for token in docs[doc]:
             doc_wt[token] = (1 + math.log10(inv_index[token][doc]))
     elif scheme[0] == 'L':
-        ave_tf = max([inv_index[token][doc] for token in set(docs[doc])])
-        for token in set(docs[doc]):
+        ave_tf = max([inv_index[token][doc] for token in docs[doc]])
+        for token in docs[doc]:
             doc_wt[token] = (1 + math.log10(inv_index[token][doc])) / (1 + math.log10(ave_tf))
     norm = np.linalg.norm(list(doc_wt.values()))
-    for token in set(docs[doc]):
+    for token in doc_wt:
         doc_wt[token] /= norm
     return doc_wt
 
@@ -51,12 +52,11 @@ def get_query_wt(query, scheme):
             query_wt[token] = (1 + math.log10(query.count(token))) / (1 + math.log10(ave_tf))
 
     if scheme[1] == 't':
-        for token in (set(query) if scheme[0] != 'a' else set(query).union(set(inv_index.keys()))):
-            query_wt[token] *= ((math.log10(N / len(inv_index[token]))) if (token in inv_index) else 0)
+        for token in set(query):
+            query_wt[token] *= ((math.log10(N / len(inv_index[token]))) if (token in vocab_set) else 0)
     elif scheme[1] == 'p':
-        for token in (set(query) if scheme[0] != 'a' else set(query).union(set(inv_index.keys()))):
-            query_wt[token] *= (
-                max(0, math.log10((N - len(inv_index[token])) / len(inv_index[token]))) if (token in inv_index) else 0)
+        for token in set(query):
+            query_wt[token] *= (max(0, math.log10((N - len(inv_index[token])) / len(inv_index[token]))) if (token in vocab_set) else 0)
 
     norm = np.linalg.norm(list(query_wt.values()))
     for token in query_wt:
@@ -88,10 +88,10 @@ def get_scores_aug():
     aug1 = {}
     deno1 = {}
     for i, doc in enumerate(docs):
-        max_tf_td[doc] = max([inv_index[token][doc] for token in set(docs[doc])])
-        aug1[doc] = {token: aug((inv_index[token][doc]), max_tf_td[doc]) for token in set(docs[doc])}
+        max_tf_td[doc] = max([inv_index[token][doc] for token in docs[doc]])
+        aug1[doc] = {token: aug((inv_index[token][doc]), max_tf_td[doc]) for token in docs[doc]}
         deno1[doc] = sum(np.multiply(list(aug1[doc].values()), list(aug1[doc].values())))
-        l = N - len(set(docs[doc]))
+        l = N - len(docs[doc])
         deno1[doc] += l * 0.25
         deno1[doc] = math.sqrt(deno1[doc])
     for query, qid in zip(query_txt, query_ids):
@@ -102,8 +102,8 @@ def get_scores_aug():
             deno2 = 0
             for token in set(query):
                 tf_tq = query.count(token)
-                df_t = (len(inv_index[token]) if (token in inv_index) else 0)
-                score += (aug1[doc][token] if (token in set(docs[doc])) else 0.5) * aug(tf_tq, max_tf_tq) * prob(df_t)
+                df_t = (len(inv_index[token]) if (token in vocab_set) else 0)
+                score += (aug1[doc][token] if (token in docs[doc]) else 0.5) * aug(tf_tq, max_tf_tq) * prob(df_t)
                 deno2 += (aug(tf_tq, max_tf_tq) * prob(df_t)) ** 2
             l = N - len(set(query))
             deno2 += l * 0.5 ** 2
@@ -138,27 +138,16 @@ if __name__ == "__main__":
 
     input_file = open(inv_index_file_name, 'rb')
     inverted_index = pickle.load(input_file)
-    docs = []
-    for subdir, dirs, files in os.walk(data_folder_path):
-        for file in files:
-            try:
-                cur_file = open(os.path.join(subdir, file), "r")
-                index = cur_file.read()
-                S = BeautifulSoup(index, 'lxml')
-                doc_name = S.find("docno").text
-                doc_content = S.find("text").text
-
-                docs.append((doc_name, doc_content))
-            except Exception as e:
-                print(e)
-
-    docs = [(tup[0], remove_stopwords(tup[1])) for tup in docs]
-    docs = [(tup[0], remove_punctuation(tup[1])) for tup in docs]
-    docs = [(tup[0], lemmatize_words(tup[1])) for tup in docs]
-    docs = {tup[0]: tup[1] for tup in docs}
 
     inv_index = {key: dict(inverted_index[key]) for key in inverted_index}
+    docs = {}
+    for token in inv_index:
+        for doc in inv_index[token]:
+            if doc not in docs:
+                docs[doc] = set()
+            docs[doc].add(token)
 
+    vocab_set = set(inv_index.keys())
     with open('queries_6.txt') as f:
         queries = f.readlines()
         query_ids = [line.split(',')[0] for line in queries]
