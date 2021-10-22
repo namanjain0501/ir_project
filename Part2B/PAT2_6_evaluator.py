@@ -20,13 +20,17 @@ def ndcg(query, score, doc, number):
             rank.append(score[query.index(doc[i])])
         else:
             rank.append(0)
+    
     dcg_actual = rank[0]
     for i in range(1, number):
         dcg_actual += rank[i]/math.log(i + 1, 2)
-    rank.sort(reverse= True)
-    dcg_ideal = rank[0]
+    score.sort(reverse= True)
+    while len(score) < number:
+        score.append(0)
+    
+    dcg_ideal = score[0]
     for i in range(1, number):
-        dcg_ideal += rank[i]/math.log(i + 1, 2)
+        dcg_ideal += score[i]/math.log(i + 1, 2)
     if dcg_ideal == 0:
         return 0
     return dcg_actual/dcg_ideal
@@ -42,6 +46,7 @@ if __name__ == "__main__":
     sumAvgQuer20 = 0
     sumndcgQuer10 = 0
     sumndcgQuer20 = 0
+
     query = list(set(df['Query_ID']))
     for i in range(len(query)):
         avgQuer10 = averagePrecision(list(real[real['Query_ID'] == query[i]]['Document_ID']), list(df[df['Query_ID'] == query[i]]['Document_ID']), 10)
