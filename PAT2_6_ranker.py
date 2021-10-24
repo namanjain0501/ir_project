@@ -33,7 +33,7 @@ def get_doc_wt(doc, scheme):
         for token in docs[doc]:
             doc_wt[token] = (1 + math.log10(inv_index[token][doc]))
     elif scheme[0] == 'L':
-        ave_tf = max([inv_index[token][doc] for token in docs[doc]])
+        ave_tf = np.mean([inv_index[token][doc] for token in docs[doc]])
         for token in docs[doc]:
             doc_wt[token] = (1 + math.log10(inv_index[token][doc])) / (1 + math.log10(ave_tf))
     norm = np.linalg.norm(list(doc_wt.values()))
