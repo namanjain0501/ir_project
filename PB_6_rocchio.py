@@ -75,6 +75,22 @@ def insert_in_sorted_list(a, x, size=50):
         a.pop()
     return a
 
+# accepts relevant_docs, non_relevant_docs as a list of dictionaries
+def modify_query(q, alpha, beta, gamma, relevant_docs, non_relevant_docs):
+    qm = dict()
+    for token, wt in q.items():
+        qm[token] = alpha * wt
+    
+    for relevant_doc in relevant_docs:
+        for token, wt in relevant_doc.items():
+            qm[token] = qm.get(token, 0) +(beta/len(relevant_docs)) * wt
+    
+    for non_relevant_doc in non_relevant_docs:
+        for token, wt in non_relevant_doc.items():
+            qm[token] = qm.get(token, 0) - (gamma/len(non_relevant_docs)) * wt
+    
+    return qm 
+
 def get_scores(scheme):
     scores = {}
     doc_wt = {}
@@ -91,22 +107,30 @@ def get_scores(scheme):
             scores[qid] = insert_in_sorted_list(scores[qid], (qid, doc, score))
     return scores
 
+def get_scores_with_query_updated(scheme, alpha, beta, gamma, relevant_docs, non_relevant_docs):
+    scores = {}
+    doc_wt = {}
+    for i, doc in enumerate(docs):
+        doc_wt[doc] = get_doc_wt(doc, scheme.split('.')[0])
+    query_wt = {}
+    for query, qid in zip(query_txt, query_ids):
+        scores[qid] = []
+        query_wt[qid] = get_query_wt(query, scheme.split('.')[1])
+        query_wt[qid] = modify_query(query_wt[qid], alpha, beta, gamma, relevant_docs, non_relevant_docs)
+        for i, doc in enumerate(docs):
+            score = 0
+            for token in set(query_wt[qid].keys()).intersection(set(doc_wt[doc])):
+                score += (query_wt[qid][token] * (doc_wt[doc][token] if (token in doc_wt[doc]) else 0))
+            scores[qid] = insert_in_sorted_list(scores[qid], (qid, doc, score))
+    return scores
+ 
+def cal_prec20_ndcg20(alpha, beta, gamma, scores):
+    for i in range(len(queryID_lst)):
+        sumPrecision20 += averagePrecision(list(real[real['Query_ID'] == queryID_lst[i]]['Document_ID']), list(scores[queryID_lst[i]][:,1]), 20)
+        sumNDCG20 += ndcg(list(real[real['Query_ID'] == query[i]]['Document_ID']), \
+                        list(real[real['Query_ID'] == query[i]]['Relevance_Score']), list(scores[queryID_lst[i]][:,1]), 20)
 
-# accepts relevant_docs, non_relevant_docs as a list of dictionaries
-def modify_query(q, alpha, beta, gamma, relevant_docs, non_relevant_docs):
-    qm = dict()
-    for token, wt in q.items():
-        qm[token] = alpha * wt
-    
-    for relevant_doc in relevant_docs:
-        for token, wt in relevant_doc.items():
-            qm[token] = qm.get(token, 0) + beta * wt
-    
-    for non_relevant_doc in non_relevant_docs:
-        for token, wt in non_relevant_doc.items():
-            qm[token] = qm.get(token, 0) - gamma * wt
-    
-    return qm  
+    return [alpha, beta, gamma, sumPrecision20/len(queryID_lst), sumNDCG20/len(queryID_lst)]
 
 if __name__ == "__main__":
     data_folder_path = sys.argv[1]
@@ -150,7 +174,10 @@ if __name__ == "__main__":
 
     N = len(docs)
 
-    
+    df = pd.read_csv(ranked_list)
+    queryID_lst = list(set(df['Query_ID']))
+    print(len(queryID_lst))
+
     schemes = ['RF', 'PsRF']
     for scheme in schemes :
         for query_id, ranking in ranked_docs.items():
@@ -168,6 +195,20 @@ if __name__ == "__main__":
                 for doc in ranking[:10]: 
                     relevant_docs.append(get_doc_wt(doc, 'lnc'))
         
-        # go naman here! # call modify_query
-    
-    
+        sumPrecision20 = 0
+        sumNDCG20 = 0
+        data = []
+
+        scores = get_scores_with_query_updated('lnc.ltc', alpha=1, beta=1, gamma=0.5, relevant_docs=relevant_docs, non_relevant_docs=non_relevant_docs)
+        data.append(cal_prec20_ndcg20(1,1,0.5,scores))
+        scores = get_scores_with_query_updated('lnc.ltc', alpha=0.5, beta=0.5, gamma=0.5, relevant_docs=relevant_docs, non_relevant_docs=non_relevant_docs)
+        data.append(cal_prec20_ndcg20(0.5,0.5,0.5,scores))
+        scores = get_scores_with_query_updated('lnc.ltc', alpha=1, beta=0.5, gamma=0, relevant_docs=relevant_docs, non_relevant_docs=non_relevant_docs)
+        data.append(cal_prec20_ndcg20(1,0.5,0,scores))
+
+        final = pd.DataFrame(data, columns =['alpha', 'beta', 'gamma', ' mAP@20', ' NDCG@20'])
+        if(scheme == 'RF'):
+            final_path = 'PB_6_rocchio_RF_metrics.csv'
+        else:
+            final_path = 'PB_6_rocchio_PsRF_metrics.csv'
+        final.to_csv(final_path, index = False)
