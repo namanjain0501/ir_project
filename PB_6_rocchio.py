@@ -1,31 +1,13 @@
 import os
 import pickle
 import sys
-import nltk
-from bs4 import BeautifulSoup
-nltk.download('stopwords')
-nltk.download('wordnet')
-from nltk.corpus import stopwords
 import string
-from nltk.stem import WordNetLemmatizer
 import math
 import numpy as np
 import csv
 import pandas as pd
+from tqdm import tqdm
 
-PUNCT_TO_REMOVE = string.punctuation
-def remove_punctuation(text):
-    """custom function to remove the punctuation"""
-    return text.translate(str.maketrans('', '', PUNCT_TO_REMOVE))
-
-STOPWORDS = set(stopwords.words('english'))
-def remove_stopwords(text):
-    """custom function to remove the stopwords"""
-    return " ".join([word for word in str(text).split() if word not in STOPWORDS])
-
-lemmatizer = WordNetLemmatizer()
-def lemmatize_words(text):
-    return [lemmatizer.lemmatize(word) for word in text.split()]
 
 def get_doc_wt(doc, scheme):
     doc_wt = {}
@@ -64,16 +46,6 @@ def get_query_wt(query, scheme):
         query_wt[token] /= norm
     return query_wt
 
-def insert_in_sorted_list(a, x, size=50):
-    a.append(x)
-    for i in range(len(a) - 1, 0, -1):
-        if a[i][2] > a[i - 1][2]:
-            a[i], a[i - 1] = a[i - 1], a[i]
-        else:
-            break
-    if len(a) > size:
-        a.pop()
-    return a
 
 # accepts relevant_docs, non_relevant_docs as a list of dictionaries
 def modify_query(q, alpha, beta, gamma, relevant_docs, non_relevant_docs):
@@ -91,21 +63,16 @@ def modify_query(q, alpha, beta, gamma, relevant_docs, non_relevant_docs):
     
     return qm 
 
-def get_scores(scheme):
-    scores = {}
-    doc_wt = {}
-    for i, doc in enumerate(docs):
-        doc_wt[doc] = get_doc_wt(doc, scheme.split('.')[0])
-    query_wt = {}
-    for query, qid in zip(query_txt, query_ids):
-        scores[qid] = []
-        query_wt[qid] = get_query_wt(query, scheme.split('.')[1])
-        for i, doc in enumerate(docs):
-            score = 0
-            for token in set(query_wt[qid].keys()).intersection(set(doc_wt[doc])):
-                score += (query_wt[qid][token] * (doc_wt[doc][token] if (token in doc_wt[doc]) else 0))
-            scores[qid] = insert_in_sorted_list(scores[qid], (qid, doc, score))
-    return scores
+def insert_in_sorted_list(a, x, size=50):
+    a.append(x)
+    for i in range(len(a) - 1, 0, -1):
+        if a[i][2] > a[i - 1][2]:
+            a[i], a[i - 1] = a[i - 1], a[i]
+        else:
+            break
+    if len(a) > size:
+        a.pop()
+    return a
 
 def get_scores_with_query_updated(scheme, alpha, beta, gamma, relevant_docs, non_relevant_docs):
     scores = {}
@@ -113,7 +80,7 @@ def get_scores_with_query_updated(scheme, alpha, beta, gamma, relevant_docs, non
     for i, doc in enumerate(docs):
         doc_wt[doc] = get_doc_wt(doc, scheme.split('.')[0])
     query_wt = {}
-    for query, qid in zip(query_txt, query_ids):
+    for query, qid in tqdm(list(zip(query_txt, query_ids))):
         scores[qid] = []
         query_wt[qid] = get_query_wt(query, scheme.split('.')[1])
         query_wt[qid] = modify_query(query_wt[qid], alpha, beta, gamma, relevant_docs, non_relevant_docs)
@@ -121,16 +88,51 @@ def get_scores_with_query_updated(scheme, alpha, beta, gamma, relevant_docs, non
             score = 0
             for token in set(query_wt[qid].keys()).intersection(set(doc_wt[doc])):
                 score += (query_wt[qid][token] * (doc_wt[doc][token] if (token in doc_wt[doc]) else 0))
-            scores[qid] = insert_in_sorted_list(scores[qid], (qid, doc, score))
+            scores[qid] = insert_in_sorted_list(scores[qid], (qid, doc, score),20)
     return scores
- 
-def cal_prec20_ndcg20(alpha, beta, gamma, scores):
-    for i in range(len(queryID_lst)):
-        sumPrecision20 += averagePrecision(list(real[real['Query_ID'] == queryID_lst[i]]['Document_ID']), list(scores[queryID_lst[i]][:,1]), 20)
-        sumNDCG20 += ndcg(list(real[real['Query_ID'] == query[i]]['Document_ID']), \
-                        list(real[real['Query_ID'] == query[i]]['Relevance_Score']), list(scores[queryID_lst[i]][:,1]), 20)
 
-    return [alpha, beta, gamma, sumPrecision20/len(queryID_lst), sumNDCG20/len(queryID_lst)]
+def averagePrecision(query, doc, number):
+    c , sum, true = 0, 0, 0
+    for i in range(number):
+        c += 1
+        if doc[i] in query:
+            true += 1
+            sum += true/c 
+    if sum == 0:
+        return 0
+    return sum/true
+
+def ndcg(query, score, doc, number):
+    rank = []
+    for i in range(number):
+        if doc[i] in query:
+            rank.append(score[query.index(doc[i])])
+        else:
+            rank.append(0)
+    
+    dcg_actual = rank[0]
+    for i in range(1, number):
+        dcg_actual += rank[i]/math.log(i + 1, 2)
+    score.sort(reverse= True)
+    while len(score) < number:
+        score.append(0)
+    
+    dcg_ideal = score[0]
+    for i in range(1, number):
+        dcg_ideal += score[i]/math.log(i + 1, 2)
+    if dcg_ideal == 0:
+        return 0
+    return dcg_actual/dcg_ideal
+ 
+def cal_prec20_ndcg20(alpha, beta, gamma, scores, real):
+    sumPrecision20=0
+    sumNDCG20=0
+    for i in range(len(query_ids)):
+        sumPrecision20 += averagePrecision(list(real[real['Query_ID'] == int(query_ids[i])]['Document_ID']), list(map(lambda x: x[1], scores[query_ids[i]])), 20)
+        sumNDCG20 += ndcg(list(real[real['Query_ID'] == int(query_ids[i])]['Document_ID']), \
+                        list(real[real['Query_ID'] == int(query_ids[i])]['Relevance_Score']), list(map(lambda x: x[1], scores[query_ids[i]])), 20)
+
+    return [alpha, beta, gamma, sumPrecision20/len(query_ids), sumNDCG20/len(query_ids)]
 
 if __name__ == "__main__":
     data_folder_path = sys.argv[1]
@@ -174,10 +176,6 @@ if __name__ == "__main__":
 
     N = len(docs)
 
-    df = pd.read_csv(ranked_list)
-    queryID_lst = list(set(df['Query_ID']))
-    print(len(queryID_lst))
-
     schemes = ['RF', 'PsRF']
     for scheme in schemes :
         for query_id, ranking in ranked_docs.items():
@@ -194,17 +192,18 @@ if __name__ == "__main__":
             else:
                 for doc in ranking[:10]: 
                     relevant_docs.append(get_doc_wt(doc, 'lnc'))
-        
-        sumPrecision20 = 0
-        sumNDCG20 = 0
+
         data = []
 
         scores = get_scores_with_query_updated('lnc.ltc', alpha=1, beta=1, gamma=0.5, relevant_docs=relevant_docs, non_relevant_docs=non_relevant_docs)
-        data.append(cal_prec20_ndcg20(1,1,0.5,scores))
+        data.append(cal_prec20_ndcg20(1,1,0.5,scores,real))
+        print(data)
         scores = get_scores_with_query_updated('lnc.ltc', alpha=0.5, beta=0.5, gamma=0.5, relevant_docs=relevant_docs, non_relevant_docs=non_relevant_docs)
-        data.append(cal_prec20_ndcg20(0.5,0.5,0.5,scores))
+        data.append(cal_prec20_ndcg20(0.5,0.5,0.5,scores,real))
+        print(data)
         scores = get_scores_with_query_updated('lnc.ltc', alpha=1, beta=0.5, gamma=0, relevant_docs=relevant_docs, non_relevant_docs=non_relevant_docs)
-        data.append(cal_prec20_ndcg20(1,0.5,0,scores))
+        data.append(cal_prec20_ndcg20(1,0.5,0,scores,real))
+        print(data)
 
         final = pd.DataFrame(data, columns =['alpha', 'beta', 'gamma', ' mAP@20', ' NDCG@20'])
         if(scheme == 'RF'):
