@@ -43,6 +43,7 @@ if __name__ == "__main__":
             except Exception as e:
                 print(e)
 
+    docs = [(tup[0],tup[1].lower()) for tup in docs]
     docs = [(tup[0],remove_stopwords(tup[1])) for tup in docs]
     docs = [(tup[0],remove_punctuation(tup[1])) for tup in docs]
     docs = [(tup[0],lemmatize_words(tup[1])) for tup in docs]

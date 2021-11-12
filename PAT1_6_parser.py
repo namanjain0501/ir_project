@@ -36,6 +36,7 @@ if __name__ == "__main__":
     
     query_ids = [query_id.text for query_id in query_ids]
     query_txt = [query.text for query in query_txt]
+    query_txt = [query.lower() for query in query_txt]
     query_txt = [remove_stopwords(query) for query in query_txt]
     query_txt = [remove_punctuation(query) for query in query_txt]
     query_txt = [lemmatize_words(query) for query in query_txt]
