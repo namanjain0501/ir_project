@@ -94,24 +94,16 @@ def get_scores_with_query_updated(scheme, alpha, beta, gamma, relevant_docs, non
 if __name__ == "__main__":
     data_folder_path = sys.argv[1]
     inv_index_file_name = sys.argv[2]
-    gold_standard_path = sys.argv[3]
-    ranked_list = sys.argv[4]
+    ranked_list = sys.argv[3]
 
     retrieved = pd.read_csv(ranked_list)
-    real = pd.read_csv(gold_standard_path)
+    #real = pd.read_csv(gold_standard_path)
 
     ranked_docs = dict()
     for query_id, doc_id in zip(retrieved['Query_ID'], retrieved['Document_ID']): 
         if(query_id not in ranked_docs):
             ranked_docs[query_id] = []
         ranked_docs[query_id].append(doc_id)
-
-    relevant_docs_gold = dict()
-    for query_id, doc_id, score in zip(real['Query_ID'], real['Document_ID'], real['Relevance_Score']):
-        if(score == 2):        
-            if(query_id not in relevant_docs_gold):
-                relevant_docs_gold[query_id] = set()
-            relevant_docs_gold[query_id].add(doc_id)
 
 
     input_file = open(inv_index_file_name, 'rb')
@@ -152,6 +144,7 @@ if __name__ == "__main__":
 
         data = []
 
+        # getting the improtant words
         scores = get_scores_with_query_updated('lnc.ltc', alpha=1, beta=1, gamma=0.5, relevant_docs=relevant_docs, non_relevant_docs=non_relevant_docs)
         for query_num in scores:
             m = {}
