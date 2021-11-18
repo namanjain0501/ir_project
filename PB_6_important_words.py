@@ -60,6 +60,8 @@ def modify_query(q, alpha, beta, gamma, relevant_docs, non_relevant_docs):
     for non_relevant_doc in non_relevant_docs:
         for token, wt in non_relevant_doc.items():
             qm[token] = qm.get(token, 0) - (gamma/len(non_relevant_docs)) * wt
+            if(qm[token]<0):
+                qm[token]=0
     
     return qm 
 
@@ -127,37 +129,37 @@ if __name__ == "__main__":
 
     schemes = ['PsRF']
     for scheme in schemes :
+        relevant_docs = {}
+        non_relevant_docs = {}
         for query_id, ranking in ranked_docs.items():
             ranking = ranking[:20]
-            relevant_docs = []
-            non_relevant_docs = []
+            relevant_docs[query_id] = []
+            non_relevant_docs[query_id] = []
 
             if(scheme == 'RF'):
                 for doc in ranking: 
                     if(doc in relevant_docs_gold.get(query_id, set())):
-                        relevant_docs.append(get_doc_wt(doc, 'lnc'))
+                        relevant_docs[query_id].append(get_doc_wt(doc, 'lnc'))
                     else:
-                        non_relevant_docs.append(get_doc_wt(doc, 'lnc'))
+                        non_relevant_docs[query_id].append(get_doc_wt(doc, 'lnc'))
             else:
                 for doc in ranking[:10]: 
-                    relevant_docs.append(get_doc_wt(doc, 'lnc'))
+                    relevant_docs[query_id].append(get_doc_wt(doc, 'lnc'))
 
         data = []
 
-        # getting the improtant words
-        scores = get_scores_with_query_updated('lnc.ltc', alpha=1, beta=1, gamma=0.5, relevant_docs=relevant_docs, non_relevant_docs=non_relevant_docs)
-        for query_num in scores:
+        # getting the important words
+        for query_num in relevant_docs.keys():
             m = {}
             sz = 0
-            for j in scores[query_num]:
+            for doc_vec in relevant_docs[query_num]:
                 sz += 1
                 if sz > 10:
                     break
-                temp = get_doc_wt(j[1], 'lnc.ltc')
-                for k in temp:
+                for k in doc_vec:
                     if k not in m:
                         m[k] = 0
-                    m[k] += temp[k]
+                    m[k] += doc_vec[k]
             x = []
             for j in m:
                 x.append([m[j], j])
