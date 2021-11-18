@@ -60,6 +60,8 @@ def modify_query(q, alpha, beta, gamma, relevant_docs, non_relevant_docs):
     for non_relevant_doc in non_relevant_docs:
         for token, wt in non_relevant_doc.items():
             qm[token] = qm.get(token, 0) - (gamma/len(non_relevant_docs)) * wt
+            if(qm[token]<0):
+                qm[token]=0
     
     return qm 
 
@@ -83,7 +85,7 @@ def get_scores_with_query_updated(scheme, alpha, beta, gamma, relevant_docs, non
     for query, qid in tqdm(list(zip(query_txt, query_ids))):
         scores[qid] = []
         query_wt[qid] = get_query_wt(query, scheme.split('.')[1])
-        query_wt[qid] = modify_query(query_wt[qid], alpha, beta, gamma, relevant_docs, non_relevant_docs)
+        query_wt[qid] = modify_query(query_wt[qid], alpha, beta, gamma, relevant_docs[int(qid)], non_relevant_docs[int(qid)])
         for i, doc in enumerate(docs):
             score = 0
             for token in set(query_wt[qid].keys()).intersection(set(doc_wt[doc])):
@@ -178,20 +180,23 @@ if __name__ == "__main__":
 
     schemes = ['RF', 'PsRF']
     for scheme in schemes :
+        print(scheme," :\n")
+        relevant_docs = {}
+        non_relevant_docs = {}
         for query_id, ranking in ranked_docs.items():
             ranking = ranking[:20]
-            relevant_docs = []
-            non_relevant_docs = []
+            relevant_docs[query_id] = []
+            non_relevant_docs[query_id] = []
 
             if(scheme == 'RF'):
                 for doc in ranking: 
                     if(doc in relevant_docs_gold.get(query_id, set())):
-                        relevant_docs.append(get_doc_wt(doc, 'lnc'))
+                        relevant_docs[query_id].append(get_doc_wt(doc, 'lnc'))
                     else:
-                        non_relevant_docs.append(get_doc_wt(doc, 'lnc'))
+                        non_relevant_docs[query_id].append(get_doc_wt(doc, 'lnc'))
             else:
                 for doc in ranking[:10]: 
-                    relevant_docs.append(get_doc_wt(doc, 'lnc'))
+                    relevant_docs[query_id].append(get_doc_wt(doc, 'lnc'))
 
         data = []
 
