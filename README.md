@@ -16,3 +16,8 @@ Deadline - 14th November
 	Python 3.8.8
 	nltk
 	BeautifulSoup
+	pandas
+	tqdm
+	csv
+	numpy
+	
