@@ -5,11 +5,12 @@
 
 ## PART-A
 
-Deadline - 20th October
+1) Building an inverted index, boolean retrieval
+2) tf-idf vectorization and evaluation
 
 ## PART-B
 
-Deadline - 14th November
+Relevance Feedback
 
 
 ### Requirements
